@@ -104,7 +104,8 @@ export class DashboardController {
         },
       });
 
-      const data = severityCounts.map((item) => ({
+      // Line 107 - Fixed with proper type
+      const data = severityCounts.map((item: { severity: string; _count: { severity: number } }) => ({
         severity: item.severity,
         count: item._count.severity,
       }));
@@ -145,8 +146,9 @@ export class DashboardController {
       });
 
       // Group by hour
-      const hourMap = new Map();
-      events.forEach((event) => {
+      const hourMap = new Map<string, number>();
+      // Line 149 - Fixed with proper type
+      events.forEach((event: { timestamp: Date }) => {
         const hour = event.timestamp.getHours();
         const key = `${hour.toString().padStart(2, '0')}:00`;
         hourMap.set(key, (hourMap.get(key) || 0) + 1);
@@ -190,7 +192,8 @@ export class DashboardController {
         take: 10,
       });
 
-      const data = topSources.map((item) => ({
+      // Line 193 - Fixed with proper type
+      const data = topSources.map((item: { sourceIp: string; _count: { sourceIp: number } }) => ({
         source: item.sourceIp,
         count: item._count.sourceIp,
       }));
