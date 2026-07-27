@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  password     String
+  name         String?
+  role         String    @default("VIEWER")
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  
+  alerts       Alert[]   @relation("AssignedAlerts")
+  incidents    Incident[] @relation("AssignedIncidents")
+  notes        IncidentNote[]
+  auditLogs    AuditLog[]
+
+  @@map("users")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String
+  actor     User     @relation(fields: [actorId], references: [id])
+  action    String
+  target    String?
+  details   String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+model Agent {
+  id              String    @id @default(cuid())
+  name            String
+  hostname        String
+  os              String?
+  ipAddress       String?
+  version         String?
+  status          String    @default("OFFLINE")
+  lastHeartbeatAt DateTime?
+  connectedAt     DateTime?  @default(now())
+  disconnectedAt  DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  events          SecurityEvent[]
+
+  @@map("agents")
+}
+
+model SecurityEvent {
+  id           String    @id @default(cuid())
+  timestamp    DateTime  @default(now())
+  eventType    String
+  source       String?
+  sourceIp     String?
+  destinationIp String?
+  username     String?
+  hostname     String?
+  processName  String?
+  command      String?
+  message      String?
+  severity     String?
+  rawData      String?
+  agentId      String?
+  agent        Agent?    @relation(fields: [agentId], references: [id])
+
+  alerts       Alert[]
+
+  @@map("security_events")
+  @@index([timestamp])
+  @@index([eventType])
+  @@index([sourceIp])
+  @@index([username])
+}
+
+model DetectionRule {
+  id             String   @id @default(cuid())
+  name           String   @unique
+  description    String?
+  eventTypes     String
+  conditions     String
+  severity       String
+  enabled        Boolean  @default(true)
+  mitreTechnique String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  alerts         Alert[]
+
+  @@map("detection_rules")
+}
+
+model Alert {
+  id             String    @id @default(cuid())
+  title          String
+  description    String?
+  severity       String
+  status         String    @default("NEW")
+  sourceIp       String?
+  hostname       String?
+  username       String?
+  ruleId         String?
+  rule           DetectionRule? @relation(fields: [ruleId], references: [id])
+  eventId        String?
+  event          SecurityEvent? @relation(fields: [eventId], references: [id])
+  assignedToId   String?
+  assignedTo     User?     @relation("AssignedAlerts", fields: [assignedToId], references: [id])
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  resolvedAt     DateTime?
+
+  incidentId     String?
+  incident       Incident? @relation("AlertIncident", fields: [incidentId], references: [id])
+
+  @@map("alerts")
+  @@index([severity])
+  @@index([status])
+  @@index([assignedToId])
+}
+
+model Incident {
+  id             String    @id @default(cuid())
+  title          String
+  description    String?
+  severity       String
+  category       String?
+  status         String    @default("OPEN")
+  assignedToId   String?
+  assignedTo     User?     @relation("AssignedIncidents", fields: [assignedToId], references: [id])
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  resolvedAt     DateTime?
+
+  alerts         Alert[]   @relation("AlertIncident")
+  notes          IncidentNote[]
+  timeline       IncidentTimeline[]
+
+  @@map("incidents")
+  @@index([status])
+  @@index([severity])
+  @@index([assignedToId])
+}
+
+model IncidentNote {
+  id             String    @id @default(cuid())
+  content        String
+  authorId       String
+  author         User      @relation(fields: [authorId], references: [id])
+  incidentId     String
+  incident       Incident  @relation(fields: [incidentId], references: [id])
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@map("incident_notes")
+}
+
+model IncidentTimeline {
+  id             String    @id @default(cuid())
+  incidentId     String
+  incident       Incident  @relation(fields: [incidentId], references: [id])
+  event          String
+  details        String?
+  createdAt      DateTime  @default(now())
+
+  @@map("incident_timeline")
+}
